@@ -1,0 +1,72 @@
+/* Smart Patient Monitoring System
+   ESP8266 + DHT11 (Temp/Humidity) + Pulse Sensor
+   Web Dashboard + Serial Output
+*/
+
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include "DHT.h"
+
+#define DHTPIN D4      // DHT11 data pin
+#define DHTTYPE DHT11
+#define PULSE_PIN A0   // Pulse sensor on analog input
+
+const char* ssid = "YOUR_SSID";
+const char* password = "YOUR_PASSWORD";
+
+DHT dht(DHTPIN, DHTTYPE);
+ESP8266WebServer server(80);
+
+// Variables
+float tempC = 0;
+float hum = 0;
+int bpm = 0;
+
+String dashboardHTML() {
+  String page = "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>";
+  page += "<title>Smart Patient Monitoring</title></head><body style='font-family:sans-serif;text-align:center'>";
+  page += "<h2>Smart Patient Monitoring</h2>";
+  page += "<p><b>Temperature:</b> " + String(tempC,1) + " °C</p>";
+  page += "<p><b>Humidity:</b> " + String(hum,1) + " %</p>";
+  page += "<p><b>Heart Rate:</b> " + String(bpm) + " BPM</p>";
+  page += "<meta http-equiv='refresh' content='3'>";
+  page += "</body></html>";
+  return page;
+}
+
+void handleRoot() {
+  server.send(200, "text/html", dashboardHTML());
+}
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi connected!");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", handleRoot);
+  server.begin();
+  Serial.println("HTTP server started");
+}
+
+void loop() {
+  // Read sensors
+  hum = dht.readHumidity();
+  tempC = dht.readTemperature();
+
+  // Simulated BPM from pulse sensor
+  int rawPulse = analogRead(PULSE_PIN);
+  bpm = map(rawPulse, 0, 1023, 60, 120);  // simple approximation
+
+  // Print to Serial
+  Serial.print("Temp: "); Serial.print(tempC); Serial.print(" °C ");
+  Serial.print("Humidity: "); Serial.print(hum); Serial.print(" % ");
+  Serial.print("BPM: "); Serial.println(bpm);
